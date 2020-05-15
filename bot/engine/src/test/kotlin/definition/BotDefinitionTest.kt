@@ -16,8 +16,11 @@
 
 package ai.tock.bot.definition
 
+import ai.tock.bot.admin.story.StoryDefinitionConfiguration
 import ai.tock.bot.connector.ConnectorType
 import ai.tock.bot.engine.BotDefinitionTest
+import ai.tock.bot.engine.StoryHandlerTest
+import ai.tock.bot.engine.config.ConfiguredStoryDefinition
 import ai.tock.bot.engine.dialog.Dialog
 import ai.tock.bot.engine.dialog.DialogState
 import ai.tock.translator.I18nLabelValue
@@ -27,6 +30,8 @@ import org.junit.jupiter.api.Test
 import java.util.Locale
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 /**
  *
@@ -63,4 +68,105 @@ class BotDefinitionTest {
         val r = botDef.findIntent("s4_secondary")
         assertEquals(Intent("s4_secondary"), r)
     }
+
+    @Test
+    fun `GIVEN stories containing configured story with specific id WHEN findStoryDefinitionById THEN story is found`() {
+        // Given
+        val storyConfiguration = ConfiguredStoryDefinition(
+            StoryDefinitionConfiguration(
+                botDefinition = botDef,
+                storyDefinition = SimpleStoryDefinition(
+                    id = "disable_bot",
+                    storyHandler = StoryHandlerTest,
+                    starterIntents = setOf(Intent("starter_intent"))
+                ),
+                configurationName = "toto"
+            )
+        )
+
+        val botDef = BotDefinitionBase(
+            botId = "test",
+            namespace = "namespace",
+            stories = listOf(storyConfiguration)
+        )
+
+        // When
+        val result = botDef.findStoryDefinitionById("disable_bot")
+
+        // Then
+        assertNotNull(result)
+    }
+
+    @Test
+    fun `GIVEN stories containing simple story with specific id WHEN findStoryDefinitionById THEN story is found`() {
+        // Given
+        val storyConfiguration = SimpleStoryDefinition(
+            id = "disable_bot",
+            storyHandler = StoryHandlerTest,
+            starterIntents = setOf(Intent("starter_intent"))
+        )
+
+        val botDef = BotDefinitionBase(
+            botId = "test",
+            namespace = "namespace",
+            stories = listOf(storyConfiguration)
+        )
+
+        // When
+        val result = botDef.findStoryDefinitionById("disable_bot")
+
+        // Then
+        assertNotNull(result)
+    }
+
+    @Test
+    fun `GIVEN stories not containing story with specific id WHEN findStoryDefinitionById THEN story is not found`() {
+        // Given
+        val botDef = BotDefinitionBase(
+            botId = "test",
+            namespace = "namespace",
+            stories = emptyList()
+        )
+
+        // When
+        val result = botDef.findStoryDefinitionById("disable_bot")
+
+        // Then
+        assertNull(result)
+    }
+
+    @Test
+    fun `GIVEN list of stories WHEN findStoryDefinitionById with non existing id THEN story is not found`() {
+        // Given
+        val simpleStoryConfiguration = SimpleStoryDefinition(
+            id = "disable_bot",
+            storyHandler = StoryHandlerTest,
+            starterIntents = setOf(Intent("starter_intent"))
+        )
+
+        val configuredStoryConfiguration = ConfiguredStoryDefinition(
+            StoryDefinitionConfiguration(
+                botDefinition = botDef,
+                storyDefinition = SimpleStoryDefinition(
+                    id = "enable_bot",
+                    storyHandler = StoryHandlerTest,
+                    starterIntents = setOf(Intent("starter_intent"))
+                ),
+                configurationName = "toto"
+            )
+        )
+
+        val botDef = BotDefinitionBase(
+            botId = "test",
+            namespace = "namespace",
+            stories = listOf(simpleStoryConfiguration, configuredStoryConfiguration)
+        )
+
+        // When
+        val result = botDef.findStoryDefinitionById("should_not_find_id")
+
+        // Then
+        assertNull(result)
+    }
+
 }

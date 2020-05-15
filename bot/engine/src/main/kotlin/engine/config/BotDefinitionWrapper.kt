@@ -23,6 +23,9 @@ import ai.tock.bot.definition.Intent
 import ai.tock.bot.definition.Intent.Companion.unknown
 import ai.tock.bot.definition.IntentAware
 import ai.tock.bot.definition.StoryDefinition
+import ai.tock.bot.engine.action.Action
+import ai.tock.bot.engine.dialog.Dialog
+import ai.tock.bot.engine.user.UserTimeline
 import mu.KotlinLogging
 
 /**
@@ -37,6 +40,22 @@ internal class BotDefinitionWrapper(val botDefinition: BotDefinition) : BotDefin
 
     @Volatile
     private var allStories: List<StoryDefinition> = botDefinition.stories
+
+    override fun disableBot(timeline: UserTimeline, dialog: Dialog, action: Action): Boolean =
+        super.disableBot(timeline, dialog, action)
+
+    override fun enableBot(timeline: UserTimeline, dialog: Dialog, action: Action): Boolean =
+        super.enableBot(timeline, dialog, action)
+
+    override fun findStoryDefinitionById(id: String): StoryDefinition? =
+        super.findStoryDefinitionById(id)
+
+    override val botDisabledStory: StoryDefinition?
+        get() = botDefinition.botDisabledStory ?: findStoryDefinitionById("disable_bot")
+
+    override val botEnabledStory: StoryDefinition?
+        get() = botDefinition.botEnabledStory ?: findStoryDefinitionById("enable_bot" )
+
 
     /**
      * Story redirections (resolved from story features).

@@ -307,6 +307,11 @@ object BotAdminService {
         return loadStory(namespace, story)
     }
 
+    fun findRuntimeStorySettings(namespace: String): List<BotStoryDefinitionConfiguration>? {
+        val stories = storyDefinitionDAO.getRuntimeStorySettings(namespace)
+        return stories?.mapNotNull { story -> loadStory(namespace, story) }
+    }
+
     private fun loadStory(namespace: String, conf: StoryDefinitionConfiguration?): BotStoryDefinitionConfiguration? {
         if (conf != null) {
             val botConf = getBotConfigurationsByNamespaceAndBotId(namespace, conf.botId).firstOrNull()

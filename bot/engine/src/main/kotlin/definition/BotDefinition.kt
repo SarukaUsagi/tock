@@ -23,6 +23,7 @@ import ai.tock.bot.engine.I18nTranslator
 import ai.tock.bot.engine.action.Action
 import ai.tock.bot.engine.action.SendChoice
 import ai.tock.bot.engine.action.SendSentence
+import ai.tock.bot.engine.config.ConfiguredStoryDefinition
 import ai.tock.bot.engine.dialog.Dialog
 import ai.tock.bot.engine.user.PlayerId
 import ai.tock.bot.engine.user.UserTimeline
@@ -139,6 +140,12 @@ interface BotDefinition : I18nKeyProvider {
     fun findStoryDefinition(intent: String?, applicationId: String? = null): StoryDefinition {
         return findStoryDefinition(stories, intent, unknownStory, keywordStory)
     }
+
+    /**
+     * Finds a [StoryDefinition] from a story [id]
+     */
+    fun findStoryDefinitionById(id: String): StoryDefinition? =
+        stories.find { it.id == id || (it as? ConfiguredStoryDefinition)?.configuration?.storyId == id }
 
     /**
      * The unknown story. Used where no valid intent is found.
