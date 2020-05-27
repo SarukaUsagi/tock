@@ -24,6 +24,7 @@ import ai.tock.bot.definition.Intent
 import ai.tock.bot.definition.StoryDefinition
 import ai.tock.bot.definition.StoryHandler
 import ai.tock.bot.definition.StoryStep
+import ai.tock.bot.definition.StoryTag
 import ai.tock.translator.UserInterfaceType
 
 /**
@@ -34,6 +35,8 @@ class ConfiguredStoryDefinition(val configuration: StoryDefinitionConfiguration)
     val answerType: AnswerConfigurationType = configuration.currentType
 
     override val id: String = configuration._id.toString()
+
+    override val tags: List<StoryTag>? = configuration.tags
 
     override val starterIntents: Set<Intent> =
         setOf(configuration.mainIntent) + (configuration.storyDefinition(configuration.botId)?.starterIntents

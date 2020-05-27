@@ -26,7 +26,8 @@ import ai.tock.bot.engine.TestStoryDefinition.test
 import ai.tock.bot.engine.config.BotDefinitionWrapper
 import ai.tock.bot.engine.config.ConfiguredStoryDefinition
 import io.mockk.mockk
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import kotlin.test.assertEquals
@@ -40,8 +41,16 @@ internal class BotDefinitionWrapperTest {
     val inputStoryId = "input_story"
 
     private fun story(id: String, type: AnswerConfigurationType, vararg features: StoryDefinitionConfigurationFeature) =
-            ConfiguredStoryDefinition(StoryDefinitionConfiguration(id, botDefinition.botId, IntentWithoutNamespace(id),
-                    type, emptyList(), features = features.toList()))
+        ConfiguredStoryDefinition(
+            configuration = StoryDefinitionConfiguration(
+                storyId = id,
+                botId = botDefinition.botId,
+                intent = IntentWithoutNamespace(id),
+                currentType = type,
+                answers = emptyList(),
+                features = features.toList()
+            )
+        )
 
     @Nested
     inner class NoRedirection {

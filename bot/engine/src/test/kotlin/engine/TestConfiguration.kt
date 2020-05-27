@@ -22,6 +22,7 @@ import ai.tock.bot.definition.IntentAware
 import ai.tock.bot.definition.SimpleStoryHandlerBase
 import ai.tock.bot.definition.SimpleStoryStep
 import ai.tock.bot.definition.StoryDefinitionExtended
+import ai.tock.bot.definition.StoryTag
 import ai.tock.bot.definition.story
 import ai.tock.bot.definition.storyWithSteps
 import ai.tock.translator.UserInterfaceType
@@ -65,7 +66,8 @@ enum class TestStoryDefinition(
     override val otherStarterIntents: Set<IntentAware> = emptySet(),
     override val secondaryIntents: Set<IntentAware> = emptySet(),
     override val stepsArray: Array<StepTest> = enumValues(),
-    override val unsupportedUserInterface: UserInterfaceType? = null
+    override val unsupportedUserInterface: UserInterfaceType? = null,
+    override val tags: List<StoryTag>? = null
 ) : StoryDefinitionExtended {
 
     test(StoryHandlerTest, secondaryIntents = setOf(secondaryIntent)),
