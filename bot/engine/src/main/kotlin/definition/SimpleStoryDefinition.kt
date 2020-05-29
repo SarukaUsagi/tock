@@ -30,7 +30,7 @@ open class SimpleStoryDefinition(override val id: String,
                                  override val intents: Set<Intent> = starterIntents,
                                  override val steps: Set<StoryStep<StoryHandlerDefinition>> = emptySet(),
                                  override val unsupportedUserInterfaces: Set<UserInterfaceType> = emptySet(),
-                                 override val tags: List<StoryTag>? = null)
+                                 override val tags: List<StoryTag> = emptyList())
     : StoryDefinition {
 
     constructor(id: String,

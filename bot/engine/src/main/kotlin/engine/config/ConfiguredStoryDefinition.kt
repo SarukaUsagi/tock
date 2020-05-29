@@ -28,7 +28,8 @@ import ai.tock.bot.definition.StoryTag
 import ai.tock.translator.UserInterfaceType
 
 /**
- *
+ * Wrapper class for StoryDefinitionConfiguration.
+ * It facilitates the business logic for handling a story definition.
  */
 class ConfiguredStoryDefinition(val configuration: StoryDefinitionConfiguration) : StoryDefinition {
 
@@ -36,7 +37,7 @@ class ConfiguredStoryDefinition(val configuration: StoryDefinitionConfiguration)
 
     override val id: String = configuration._id.toString()
 
-    override val tags: List<StoryTag>? = configuration.tags
+    override val tags: List<StoryTag> = configuration.tags
 
     override val starterIntents: Set<Intent> =
         setOf(configuration.mainIntent) + (configuration.storyDefinition(configuration.botId)?.starterIntents

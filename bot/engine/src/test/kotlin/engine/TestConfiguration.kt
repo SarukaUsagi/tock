@@ -67,7 +67,7 @@ enum class TestStoryDefinition(
     override val secondaryIntents: Set<IntentAware> = emptySet(),
     override val stepsArray: Array<StepTest> = enumValues(),
     override val unsupportedUserInterface: UserInterfaceType? = null,
-    override val tags: List<StoryTag>? = null
+    override val tags: List<StoryTag> = emptyList()
 ) : StoryDefinitionExtended {
 
     test(StoryHandlerTest, secondaryIntents = setOf(secondaryIntent)),

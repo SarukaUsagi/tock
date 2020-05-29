@@ -62,7 +62,6 @@ import ai.tock.bot.engine.dialog.DialogFlowDAO
 import ai.tock.bot.engine.feature.FeatureDAO
 import ai.tock.bot.engine.feature.FeatureState
 import ai.tock.nlp.admin.AdminService
-import ai.tock.nlp.admin.model.SentenceReport
 import ai.tock.nlp.front.client.FrontClient
 import ai.tock.nlp.front.service.applicationDAO
 import ai.tock.nlp.front.shared.config.ApplicationDefinition
@@ -79,7 +78,6 @@ import ai.tock.shared.defaultLocale
 import ai.tock.shared.injector
 import ai.tock.shared.provide
 import ai.tock.shared.security.UserLogin
-import ai.tock.shared.vertx.UnauthorizedException
 import ai.tock.shared.vertx.WebVerticle.Companion.badRequest
 import ai.tock.translator.I18nKeyProvider
 import ai.tock.translator.I18nLabel
@@ -90,7 +88,7 @@ import mu.KotlinLogging
 import org.litote.kmongo.Id
 import org.litote.kmongo.toId
 import java.time.Instant
-import java.util.Locale
+import java.util.*
 
 /**
  *
@@ -129,19 +127,19 @@ object BotAdminService {
                 } else {
                     val c = result.compilationResult!!
                     ScriptAnswerVersionedConfiguration(
-                        script.script,
-                        c.files.map { it.key.substring(0, it.key.length - ".class".length) to it.value },
-                        BotVersion.getCurrentBotVersion(botId),
-                        c.mainClass
+                        script = script.script,
+                        compiledCode = c.files.map { it.key.substring(0, it.key.length - ".class".length) to it.value },
+                        version = BotVersion.getCurrentBotVersion(botId),
+                        mainClassName = c.mainClass
                     )
                 }
             } else {
                 ScriptAnswerVersionedConfiguration(
-                    script.script,
-                    emptyList(),
-                    script.version,
-                    "",
-                    script.date
+                    script = script.script,
+                    compiledCode = emptyList(),
+                    version = script.version,
+                    mainClassName = "",
+                    date = script.date
                 )
             }
         }
@@ -178,17 +176,6 @@ object BotAdminService {
 
     fun save(conf: BotConfiguration) {
         applicationConfigurationDAO.save(conf)
-    }
-
-    fun getBotConfiguration(
-        botApplicationConfigurationId: Id<BotApplicationConfiguration>,
-        namespace: String
-    ): BotApplicationConfiguration {
-        val conf = applicationConfigurationDAO.getConfigurationById(botApplicationConfigurationId)
-        if (conf?.namespace != namespace) {
-            throw UnauthorizedException()
-        }
-        return conf
     }
 
     fun searchUsers(query: UserSearchQuery): UserSearchQueryResult {
@@ -254,32 +241,6 @@ object BotAdminService {
                     conf.nlpModel
                 )
             )
-        }
-    }
-
-    fun loadSentencesFromIntent(
-        namespace: String,
-        nlpModel: String,
-        intentName: String,
-        locale: Locale
-    ): List<SentenceReport> {
-        val nlpApplication = front.getApplicationByNamespaceAndName(namespace, nlpModel)
-        val intent = front.getIntentByNamespaceAndName(namespace, intentName)
-        return if (intent != null) {
-            val query = SentencesQuery(
-                nlpApplication!!._id,
-                locale,
-                size = 3,
-                intentId = intent._id
-            )
-            front.search(query)
-                .sentences
-                .map { s ->
-                    SentenceReport(s)
-                }
-        } else {
-            logger.warn { "unknown intent: ${namespace} ${intentName} - skipped" }
-            emptyList()
         }
     }
 
@@ -503,8 +464,8 @@ object BotAdminService {
             role,
             entityType,
             intent,
-            answers.mapNotNull {
-                it.toConfiguration(
+            answers.mapNotNull { botAnswerConfiguration ->
+                botAnswerConfiguration.toConfiguration(
                     botId,
                     oldStory?.mandatoryEntities?.find { it.role == role }?.answers
                 )
@@ -554,7 +515,7 @@ object BotAdminService {
                 ?: "${intent?.name}${(entity?.value ?: entity?.entityRole)?.let { "_$it" }}_$level",
             intent?.takeIf { it.name.isNotBlank() },
             targetIntent?.takeIf { it.name.isNotBlank() },
-            answers.mapNotNull { it.toConfiguration(botId, oldStory?.steps?.find { it.name == name }?.answers) },
+            answers.mapNotNull { botAnswerConfiguration -> botAnswerConfiguration.toConfiguration(botId, oldStory?.steps?.find { it.name == name }?.answers) },
             currentType,
             userSentence.defaultLabel ?: "",
             I18nLabelValue(userSentence),
@@ -562,63 +523,54 @@ object BotAdminService {
             level,
             entity
         ).apply {
-            //if intentDefinition is null, we don't need to update intent
-            if (intentDefinition != null) {
-                //check that the intent exists
-                val intentName = intent?.name
-                var newIntent = intentName?.let { front.getIntentByNamespaceAndName(app.namespace, intentName) }
-                if (newIntent == null && intentName != null) {
-                    newIntent = IntentDefinition(
-                        intentName,
-                        app.namespace,
-                        setOf(app._id),
-                        emptySet(),
-                        label = intentDefinition.label,
-                        category = intentDefinition.category,
-                        description = intentDefinition.description
-                    )
-                    front.save(newIntent)
-                }
-            }
-            if (targetIntentDefinition != null) {
-                //check that the intent exists
-                val intentName = targetIntent?.name
-                var newIntent = intentName?.let { front.getIntentByNamespaceAndName(app.namespace, intentName) }
-                if (newIntent == null && intentName != null) {
-                    newIntent = IntentDefinition(
-                        intentName,
-                        app.namespace,
-                        setOf(app._id),
-                        emptySet(),
-                        label = targetIntentDefinition.label,
-                        category = targetIntentDefinition.category,
-                        description = targetIntentDefinition.description
-                    )
-                    front.save(newIntent)
-                }
-            }
+            updateIntentDefinition(intentDefinition, intent, app)
+            updateIntentDefinition(targetIntentDefinition, targetIntent, app)
         }
 
-    private fun mergeStory(oldStory: StoryDefinitionConfiguration, story: BotStoryDefinitionConfiguration, application: ApplicationDefinition, botId: String) : StoryDefinitionConfiguration {
+    private fun updateIntentDefinition(intentDefinition: IntentDefinition?,
+                                       intent: IntentWithoutNamespace?,
+                                       app: ApplicationDefinition) {
+        //if intentDefinition is null, we don't need to update intent
+        if (intentDefinition != null) {
+            //check that the intent exists
+            val intentName = intent?.name
+            var newIntent = intentName?.let { front.getIntentByNamespaceAndName(app.namespace, intentName) }
+            if (newIntent == null && intentName != null) {
+                newIntent = IntentDefinition(
+                    intentName,
+                    app.namespace,
+                    setOf(app._id),
+                    emptySet(),
+                    label = intentDefinition.label,
+                    category = intentDefinition.category,
+                    description = intentDefinition.description
+                )
+                front.save(newIntent)
+            }
+        }
+    }
+
+    private fun mergeStory(oldStory: StoryDefinitionConfiguration, story: BotStoryDefinitionConfiguration, application: ApplicationDefinition, botId: String): StoryDefinitionConfiguration {
         return oldStory.copy(
-                name = story.name,
-                description = story.description,
-                category = story.category,
-                currentType = story.currentType,
-                intent = story.intent,
-                answers = story.answers.mapNotNull { it.toStoryConfiguration(botId, oldStory) },
-                mandatoryEntities = story.mandatoryEntities.map {
-                    it.toEntityConfiguration(
-                            application,
-                            botId,
-                            oldStory
-                    )
-                },
-                steps = story.steps.map { it.toStepConfiguration(application, botId, oldStory) },
-                userSentence = story.userSentence,
-                userSentenceLocale = story.userSentenceLocale,
-                configurationName = story.configurationName,
-                features = story.features
+            name = story.name,
+            description = story.description,
+            category = story.category,
+            currentType = story.currentType,
+            intent = story.intent,
+            answers = story.answers.mapNotNull { it.toStoryConfiguration(botId, oldStory) },
+            mandatoryEntities = story.mandatoryEntities.map {
+                it.toEntityConfiguration(
+                    application,
+                    botId,
+                    oldStory
+                )
+            },
+            steps = story.steps.map { it.toStepConfiguration(application, botId, oldStory) },
+            userSentence = story.userSentence,
+            userSentenceLocale = story.userSentenceLocale,
+            configurationName = story.configurationName,
+            features = story.features,
+            tags = story.tags
         )
     }
 
@@ -646,17 +598,17 @@ object BotAdminService {
 
             val application = front.getApplicationByNamespaceAndName(namespace, botConf.nlpModel)!!
             val storyWithSameNsBotTypeAndName = storyDefinitionDAO.getStoryDefinitionByNamespaceAndBotIdAndTypeAndStoryId(
-                    namespace,
-                    botConf.botId,
-                    story.currentType,
-                    story.storyId
-            )?.also { logger.debug {"Found story with same namespace, type and name: $it"} }
+                namespace = namespace,
+                botId = botConf.botId,
+                type = story.currentType,
+                storyId = story.storyId
+            )?.also { logger.debug { "Found story with same namespace, type and name: $it" } }
             val storyWithSameNsBotTypeAndIntent = storyDefinitionDAO.getStoryDefinitionByNamespaceAndBotIdAndTypeAndIntent(
-                    namespace,
-                    botConf.botId,
-                    story.currentType,
-                    story.intent.name
-            )?.also { logger.debug {"Found story with same namespace, type and intent: $it"} }
+                namespace = namespace,
+                botId = botConf.botId,
+                type = story.currentType,
+                intent = story.intent.name
+            )?.also { logger.debug { "Found story with same namespace, type and intent: $it" } }
 
             storyWithSameNsBotTypeAndIntent.let {
                 if (it == null || it.currentType == builtin) {
@@ -675,47 +627,49 @@ object BotAdminService {
                     }
                 }
             }
-            if (storyWithSameNsBotTypeAndName != null && storyWithSameNsBotTypeAndName?._id != storyWithSameId?._id
-            ) {
-                if (storyWithSameNsBotTypeAndName?.currentType != builtin) {
+            if (storyWithSameNsBotTypeAndName != null && storyWithSameNsBotTypeAndName._id != storyWithSameId?._id) {
+                if (storyWithSameNsBotTypeAndName.currentType != builtin) {
                     badRequest("Story ${story.name} (${story.currentType}) already exists")
                 }
             }
 
-            val newStory = if (storyWithSameId != null) {
-                mergeStory(storyWithSameId, story, application, botConf.botId)
-            } else if (storyWithSameNsBotTypeAndIntent != null) {
-                mergeStory(storyWithSameNsBotTypeAndIntent, story, application, botConf.botId)
-            } else if (storyWithSameNsBotTypeAndName != null) {
-                mergeStory(storyWithSameNsBotTypeAndName, story, application, botConf.botId)
-            } else {
-                StoryDefinitionConfiguration(
-                        story.storyId,
-                        story.botId,
-                        story.intent,
-                        story.currentType,
-                        story.answers.mapNotNull { it.toStoryConfiguration(botConf.botId, null) },
-                        0,
-                        namespace,
-                        story.mandatoryEntities.map {
+            val newStory = when {
+                storyWithSameId != null ->
+                    mergeStory(storyWithSameId, story, application, botConf.botId)
+                storyWithSameNsBotTypeAndIntent != null ->
+                    mergeStory(storyWithSameNsBotTypeAndIntent, story, application, botConf.botId)
+                storyWithSameNsBotTypeAndName != null ->
+                    mergeStory(storyWithSameNsBotTypeAndName, story, application, botConf.botId)
+                else -> {
+                    StoryDefinitionConfiguration(
+                        storyId = story.storyId,
+                        botId = story.botId,
+                        intent = story.intent,
+                        currentType = story.currentType,
+                        answers = story.answers.mapNotNull { it.toStoryConfiguration(botConf.botId, null) },
+                        version = 0,
+                        namespace = namespace,
+                        mandatoryEntities = story.mandatoryEntities.map {
                             it.toEntityConfiguration(
-                                    application,
-                                    botConf.botId,
-                                    storyWithSameId
+                                application,
+                                botConf.botId,
+                                storyWithSameId
                             )
                         },
-                        story.steps.map { it.toStepConfiguration(application, botConf.botId, null) },
-                        story.name,
-                        story.category,
-                        story.description,
-                        story.userSentence,
-                        story.userSentenceLocale,
-                        story.configurationName,
-                        story.features
-                )
+                        steps = story.steps.map { it.toStepConfiguration(application, botConf.botId, null) },
+                        name = story.name,
+                        category = story.category,
+                        description = story.description,
+                        userSentence = story.userSentence,
+                        userSentenceLocale = story.userSentenceLocale,
+                        configurationName = story.configurationName,
+                        features = story.features,
+                        tags = story.tags
+                    )
+                }
             }
 
-            logger.debug {"Saving story: $newStory"}
+            logger.debug { "Saving story: $newStory" }
             storyDefinitionDAO.save(newStory)
 
             if (story.userSentence.isNotBlank()) {
@@ -758,15 +712,15 @@ object BotAdminService {
         ) {
             front.save(
                 ClassifiedSentence(
-                    text,
-                    locale,
-                    applicationId,
-                    Instant.now(),
-                    Instant.now(),
-                    validated,
-                    Classification(intentId, emptyList()),
-                    1.0,
-                    1.0,
+                    text = text,
+                    language = locale,
+                    applicationId = applicationId,
+                    creationDate = Instant.now(),
+                    updateDate = Instant.now(),
+                    status = validated,
+                    classification = Classification(intentId, emptyList()),
+                    lastIntentProbability = 1.0,
+                    lastEntityProbability = 1.0,
                     qualifier = user
                 )
             )
@@ -821,14 +775,14 @@ object BotAdminService {
 
     fun addFeature(botId: String, namespace: String, feature: Feature) {
         featureDAO.addFeature(
-            botId,
-            namespace,
-            feature.enabled,
-            feature.category,
-            feature.name,
-            feature.startDate,
-            feature.endDate,
-            feature.applicationId
+            botId = botId,
+            namespace = namespace,
+            enabled = feature.enabled,
+            category = feature.category,
+            name = feature.name,
+            startDate = feature.startDate,
+            endDate = feature.endDate,
+            applicationId = feature.applicationId
         )
     }
 
@@ -844,10 +798,10 @@ object BotAdminService {
         val applicationIds = if (request.botConfigurationId != null) {
             if (tests && configurationName != null) {
                 val configurations = applicationConfigurationDAO.getConfigurationsByBotNamespaceAndConfigurationName(namespace, botId,
-                        configurationName)
+                    configurationName)
                 val actualConfiguration = configurations.find { it._id == request.botConfigurationId }
                 val testConfiguration = configurations.find { it.applicationId == "test-${actualConfiguration?.applicationId}" }
-                listOf(request.botConfigurationId, testConfiguration?._id).filterNotNull().toSet()
+                listOfNotNull(request.botConfigurationId, testConfiguration?._id).toSet()
             } else
                 setOf(request.botConfigurationId)
         } else if (configurationName != null) {
@@ -858,12 +812,12 @@ object BotAdminService {
                 .toSet()
         } else {
             applicationConfigurationDAO
-                    .getConfigurationsByNamespaceAndBotId(namespace, botId)
-                    .filter { tests || it.connectorType != ConnectorType.rest }
-                    .map { it._id }
-                    .toSet()
+                .getConfigurationsByNamespaceAndBotId(namespace, botId)
+                .filter { tests || it.connectorType != ConnectorType.rest }
+                .map { it._id }
+                .toSet()
         }
-        logger.debug {"Loading Bot Flow for ${applicationIds.size} configurations: $applicationIds..."}
+        logger.debug { "Loading Bot Flow for ${applicationIds.size} configurations: $applicationIds..." }
         return dialogFlowDAO.loadApplicationData(namespace, botId, applicationIds)
     }
 

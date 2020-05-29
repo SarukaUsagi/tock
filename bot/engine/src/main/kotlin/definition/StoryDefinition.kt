@@ -48,7 +48,7 @@ interface StoryDefinition : IntentAware {
     /**
      * The story definition tags that specify different story types or roles.
      */
-    val tags: List<StoryTag>?
+    val tags: List<StoryTag> get() = emptyList()
 
     /**
      * The story handler of the story.

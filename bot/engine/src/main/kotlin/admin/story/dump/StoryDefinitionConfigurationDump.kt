@@ -94,7 +94,7 @@ data class StoryDefinitionConfigurationDump(
     /**
      * The story definition tags that specify different story types or roles.
      */
-    val tags: List<StoryTag>?
+    val tags: List<StoryTag> = emptyList()
 ) {
 
     constructor(def: StoryDefinitionConfiguration) :

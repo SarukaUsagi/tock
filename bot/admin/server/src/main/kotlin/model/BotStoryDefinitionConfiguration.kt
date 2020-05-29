@@ -61,7 +61,7 @@ data class BotStoryDefinitionConfiguration(
     val userSentenceLocale: Locale,
     val configurationName: String? = null,
     val features: List<StoryDefinitionConfigurationFeature> = emptyList(),
-    val tags: List<StoryTag>? = null,
+    val tags: List<StoryTag> = emptyList(),
     val _id: Id<StoryDefinitionConfiguration> = newId()
 ) {
 

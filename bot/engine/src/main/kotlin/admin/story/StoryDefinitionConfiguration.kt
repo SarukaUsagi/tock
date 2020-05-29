@@ -110,7 +110,7 @@ data class StoryDefinitionConfiguration(
     /**
      * The story definition tags that specify different story types or roles.
      */
-    val tags: List<StoryTag>? = null
+    val tags: List<StoryTag> = emptyList()
 
 ) : StoryDefinitionAnswersContainer {
 
