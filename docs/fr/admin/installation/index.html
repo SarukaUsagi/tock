@@ -1396,7 +1396,7 @@ composant ou l'application avec une commande Java classique.</p>
 <p>Pour exemple, le descripteur du composant <code>tock-docker-nlp-api</code> 
  (voir <a href="https://github.com/theopenconversationkit/tock-docker/blob/master/nlp-api/pom.xml"><code>pom.xml</code></a>)
 avec la commande suivante :</p>
-<div class="codehilite"><pre><span></span><code><span class="err">java $JAVA_ARGS -Dfile.encoding=UTF-8 -cp &#39;/maven/*&#39; ai.tock.nlp.api.StartNlpServiceKt</span>
+<div class="codehilite"><pre><span></span><code><span class="n">java</span> <span class="err">$</span><span class="n">JAVA_ARGS</span> <span class="o">-</span><span class="n">Dfile</span><span class="p">.</span><span class="k">encoding</span><span class="o">=</span><span class="n">UTF</span><span class="o">-</span><span class="mi">8</span> <span class="o">-</span><span class="n">cp</span> <span class="s1">&#39;/maven/*&#39;</span> <span class="n">ai</span><span class="p">.</span><span class="n">tock</span><span class="p">.</span><span class="n">nlp</span><span class="p">.</span><span class="n">api</span><span class="p">.</span><span class="n">StartNlpServiceKt</span>
 </code></pre></div>
 
 
@@ -1573,7 +1573,7 @@ nécessitera de provisionner environ 8 Go de RAM pour le composant <code>tock/bu
 <h3 id="memoire-jvm-docker">Mémoire JVM &amp; Docker<a class="headerlink" href="#memoire-jvm-docker" title="Permanent link">&para;</a></h3>
 <p>Pour garantir que les conteneurs/instances Docker ne dépassent pas la mémoire disponible, il est recommandé
 de limiter la mémoire des JVMs en suivant l'exemple suivant :</p>
-<div class="codehilite"><pre><span></span><code><span class="err">JAVA_ARGS=-Xmx1g -XX:MaxMetaspaceSize=256m</span>
+<div class="codehilite"><pre><span></span><code><span class="n">JAVA_ARGS</span><span class="o">=-</span><span class="n">Xmx1g</span> <span class="o">-</span><span class="n">XX</span><span class="p">:</span><span class="n">MaxMetaspaceSize</span><span class="o">=</span><span class="mi">256</span><span class="n">m</span>
 </code></pre></div>
 
 
