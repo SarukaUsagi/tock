@@ -19,6 +19,12 @@ import ai.tock.bot.connector.ConnectorBase
 import ai.tock.bot.connector.ConnectorCallback
 import ai.tock.bot.connector.ConnectorData
 import ai.tock.bot.connector.ConnectorMessage
+import ai.tock.bot.connector.hangoutschat.builder.ChatButtons
+import ai.tock.bot.connector.hangoutschat.builder.ChatCard
+import ai.tock.bot.connector.hangoutschat.builder.card
+import ai.tock.bot.connector.media.MediaAction
+import ai.tock.bot.connector.media.MediaCard
+import ai.tock.bot.connector.media.MediaCarousel
 import ai.tock.bot.connector.media.MediaMessage
 import ai.tock.bot.engine.BotBus
 import ai.tock.bot.engine.ConnectorController
@@ -63,10 +69,13 @@ class HangoutsChatConnector(
                         val event = HangoutsChatRequestConverter.toEvent(messageEvent, connectorId)
                         if (event != null && spaceName != null && threadName != null) {
                             executor.executeBlocking {
-                                controller.handle(event, ConnectorData(HangoutsChatConnectorCallback(connectorId, spaceName, threadName)))
+                                controller.handle(
+                                    event,
+                                    ConnectorData(HangoutsChatConnectorCallback(connectorId, spaceName, threadName))
+                                )
                             }
                         } else {
-                            logger.debug { "skip message: $body" }
+                            logger.debug { "skip message: $messageEvent" }
                         }
 
                     } catch (e: Throwable) {
@@ -84,7 +93,10 @@ class HangoutsChatConnector(
             if (message != null) {
                 callback as HangoutsChatConnectorCallback
                 executor.executeBlocking(Duration.ofMillis(delayInMs)) {
-                    chatService.spaces().messages().create(callback.spaceName, message.googleMessage.setThread(Thread().setName(callback.threadName))).execute()
+                    chatService.spaces().messages().create(
+                        callback.spaceName,
+                        message.toGoogleMessage().setThread(Thread().setName(callback.threadName))
+                    ).execute()
                 }
             }
         }
@@ -92,14 +104,84 @@ class HangoutsChatConnector(
 
 
     override fun addSuggestions(text: CharSequence, suggestions: List<CharSequence>): BotBus.() -> ConnectorMessage? = {
-        TODO("Not yet implemented")
+        card {
+            section {
+                textParagraph(text)
+                buttons {
+                    suggestions.map { nlpTextButton(it) }
+                }
+            }
+        }
     }
 
-    override fun addSuggestions(message: ConnectorMessage, suggestions: List<CharSequence>): BotBus.() -> ConnectorMessage? = {
-        TODO("Not yet implemented")
+    override fun addSuggestions(
+        message: ConnectorMessage,
+        suggestions: List<CharSequence>
+    ): BotBus.() -> ConnectorMessage? = {
+        when (message) {
+            is HangoutsChatConnectorCardMessageOut -> {
+                message.apply {
+                    card.section {
+                        buttons { suggestions.map { nlpTextButton(it) } }
+                    }
+                }
+            }
+            is HangoutsChatConnectorTextMessageOut -> {
+                card {
+                    section {
+                        textParagraph(message.text)
+                        buttons {
+                            suggestions.map { nlpTextButton(it) }
+                        }
+                    }
+                }
+            }
+            else -> message.also { logger.warn { "Add suggestion to message $message not handled" } }
+        }
     }
 
     override fun toConnectorMessage(message: MediaMessage): BotBus.() -> List<ConnectorMessage> = {
-        TODO("Not yet implemented")
+        when (message) {
+            is MediaAction -> listOf(card {
+                section {
+                    buttons {
+                        buttonFromMediaAction(message)
+                    }
+                }
+            })
+            is MediaCard -> listOf(card {
+                sectionFromMediaCard(message)
+            })
+            is MediaCarousel -> listOf(card {
+                message.cards.forEach { sectionFromMediaCard(it) }
+            })
+            else -> emptyList()
+        }
+    }
+
+    private fun ChatCard.sectionFromMediaCard(message: MediaCard) {
+        section {
+            if (message.title != null) {
+                keyValue(content = message.title!!, bottomLabel = message.subTitle)
+            }
+            if (message.actions.isNotEmpty()) {
+                buttons {
+                    message.actions.forEach {
+                        buttonFromMediaAction(it)
+                    }
+                }
+            }
+            // TODO : handle MediaFile
+        }
+    }
+
+    private fun ChatButtons.buttonFromMediaAction(message: MediaAction) {
+        textButton(message.title) {
+            if (message.url != null) {
+                link(message.url!!)
+            } else {
+                nlpAction(message.title)
+            }
+        }
     }
 }

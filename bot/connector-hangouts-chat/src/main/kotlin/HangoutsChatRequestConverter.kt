@@ -15,6 +15,11 @@
  */
 package ai.tock.bot.connector.hangoutschat
 
+import ai.tock.bot.connector.hangoutschat.builder.HANGOUTS_CHAT_ACTION_INTENT_PARAMETER
+import ai.tock.bot.connector.hangoutschat.builder.HANGOUTS_CHAT_ACTION_SEND_CHOICE
+import ai.tock.bot.connector.hangoutschat.builder.HANGOUTS_CHAT_ACTION_SEND_SENTENCE
+import ai.tock.bot.connector.hangoutschat.builder.HANGOUTS_CHAT_ACTION_TEXT_PARAMETER
+import ai.tock.bot.engine.action.SendChoice
 import ai.tock.bot.engine.action.SendSentence
 import ai.tock.bot.engine.event.EndConversationEvent
 import ai.tock.bot.engine.event.Event
@@ -34,6 +39,20 @@ internal object HangoutsChatRequestConverter {
             "ADDED_TO_SPACE" -> StartConversationEvent(playerId, botId, applicationId)
             "REMOVED_FROM_SPACE" -> EndConversationEvent(playerId, botId, applicationId)
             "MESSAGE" -> SendSentence(playerId, applicationId, botId, event.message?.text)
+            "CARD_CLICKED" -> when (event.action.actionMethodName) {
+                HANGOUTS_CHAT_ACTION_SEND_SENTENCE -> SendSentence(
+                    playerId,
+                    applicationId,
+                    botId,
+                    event.action.parameters.first { it.key == HANGOUTS_CHAT_ACTION_TEXT_PARAMETER }.value
+                )
+                HANGOUTS_CHAT_ACTION_SEND_CHOICE -> SendChoice(
+                    playerId, applicationId, botId,
+                    intentName = event.action.parameters.first { it.key == HANGOUTS_CHAT_ACTION_INTENT_PARAMETER }.value,
+                    parameters = event.action.parameters.map { it.key to it.value }.toMap()
+                )
+                else -> null
+            }
             else -> null
         }
     }

@@ -23,13 +23,13 @@ internal object HangoutsChatMessageConverter {
 
     val logger = KotlinLogging.logger {}
 
-    fun toMessageOut(action: Action): HangoutsChatConnectorMessageOut? {
+    fun toMessageOut(action: Action): HangoutsChatConnectorMessage? {
         return when (action) {
             is SendSentence ->
                 if (action.hasMessage(HangoutsChatConnectorProvider.connectorType)) {
-                    action.message(HangoutsChatConnectorProvider.connectorType) as HangoutsChatConnectorMessageOut
+                    action.message(HangoutsChatConnectorProvider.connectorType) as HangoutsChatConnectorMessage
                 } else {
-                    action.stringText?.takeUnless { it.isBlank()}?.let { HangoutsChatConnectorMessageOut(it) }
+                    action.stringText?.takeUnless { it.isBlank()}?.let { HangoutsChatConnectorTextMessageOut(it) }
                 }
             else -> {
                 logger.warn { "Action $action not supported" }

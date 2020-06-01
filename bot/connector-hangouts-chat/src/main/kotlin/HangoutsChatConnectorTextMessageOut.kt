@@ -14,8 +14,14 @@ package ai.tock.bot.connector.hangoutschat
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import ai.tock.bot.engine.message.GenericMessage
 import com.google.api.services.chat.v1.model.Message
 
-data class HangoutsChatConnectorMessageOut(val googleMessage: Message) : HangoutsChatConnectorMessage() {
-    constructor(textMessage: String) : this(Message().setText(textMessage))
+data class HangoutsChatConnectorTextMessageOut(val text: CharSequence) : HangoutsChatConnectorMessage() {
+
+    override fun toGoogleMessage(): Message = Message().setText(text.toString())
+
+    override fun toGenericMessage(): GenericMessage? {
+        return GenericMessage(texts = mapOf(GenericMessage.TEXT_PARAM to text.toString()))
+    }
 }

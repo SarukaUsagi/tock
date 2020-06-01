@@ -26,10 +26,13 @@ import com.google.api.services.chat.v1.HangoutsChat
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.auth.oauth2.ServiceAccountCredentials
+import java.io.ByteArrayInputStream
+import java.io.InputStream
 import kotlin.reflect.KClass
 
 private const val CHAT_SCOPE = "https://www.googleapis.com/auth/chat.bot"
 private const val SERVICE_CREDENTIAL_PATH_PARAMETER = "serviceCredentialPath"
+private const val SERVICE_CREDENTIAL_CONTENT_PARAMETER = "serviceCredentialContent"
 private const val BOT_PROJECT_NUMBER_PARAMETER = "botProjectNumber"
 
 internal object HangoutsChatConnectorProvider : ConnectorProvider {
@@ -39,15 +42,22 @@ internal object HangoutsChatConnectorProvider : ConnectorProvider {
     override fun connector(connectorConfiguration: ConnectorConfiguration): Connector {
         with(connectorConfiguration) {
 
-            val requestInitializer: HttpRequestInitializer = HttpCredentialsAdapter(loadCredentials(
-                connectorConfiguration.parameters.getOrDefault(
-                    SERVICE_CREDENTIAL_PATH_PARAMETER,
-                    "/service-account-$connectorId.json")
-            ))
+
+            val credentialInputStream =
+                connectorConfiguration.parameters[SERVICE_CREDENTIAL_PATH_PARAMETER]
+                    ?.let { resourceAsStream(it) }
+                    ?: connectorConfiguration.parameters[SERVICE_CREDENTIAL_CONTENT_PARAMETER]
+                        ?.let { ByteArrayInputStream(it.toByteArray()) }
+                    ?: error("Service credential missing : either $SERVICE_CREDENTIAL_PATH_PARAMETER or $SERVICE_CREDENTIAL_CONTENT_PARAMETER must be provided")
+
+            val requestInitializer: HttpRequestInitializer =
+                HttpCredentialsAdapter(loadCredentials(credentialInputStream))
+
             val chatService = HangoutsChat.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 JacksonFactory.getDefaultInstance(),
-                requestInitializer)
+                requestInitializer
+            )
                 .setApplicationName(connectorId)
                 .build()
 
@@ -65,29 +75,35 @@ internal object HangoutsChatConnectorProvider : ConnectorProvider {
         }
     }
 
-    private fun loadCredentials(credentialResourceFilePath: String): GoogleCredentials =
+    private fun loadCredentials(inputStream: InputStream): GoogleCredentials =
         ServiceAccountCredentials
-            .fromStream(resourceAsStream(credentialResourceFilePath))
+            .fromStream(inputStream)
             .createScoped(CHAT_SCOPE)
 
     override fun configuration(): ConnectorTypeConfiguration =
         ConnectorTypeConfiguration(
             hangoutsChatConnectorType, listOf(
-            ConnectorTypeConfigurationField(
-                "Bot project number (application ID in google hangouts configuration page)",
-                BOT_PROJECT_NUMBER_PARAMETER,
-                true
+                ConnectorTypeConfigurationField(
+                    "Bot project number (application ID in google hangouts configuration page)",
+                    BOT_PROJECT_NUMBER_PARAMETER,
+                    true
+                ),
+                ConnectorTypeConfigurationField(
+                    "Service account credential file path (default : /service-account-{connectorId}.json)",
+                    SERVICE_CREDENTIAL_PATH_PARAMETER,
+                    false
+                ),
+                ConnectorTypeConfigurationField(
+                    "Service account credential json content",
+                    SERVICE_CREDENTIAL_CONTENT_PARAMETER,
+                    false
+                )
             ),
-            ConnectorTypeConfigurationField(
-                "Service account credential file path (default : /service-account-{connectorId}.json)",
-                SERVICE_CREDENTIAL_PATH_PARAMETER,
-                false
-            )
-        ),
             svgIcon = resourceAsString("/hangouts_chat.svg")
         )
 
-    override val supportedResponseConnectorMessageTypes: Set<KClass<out ConnectorMessage>> = setOf(HangoutsChatConnectorMessageOut::class)
+    override val supportedResponseConnectorMessageTypes: Set<KClass<out ConnectorMessage>> =
+        setOf(HangoutsChatConnectorTextMessageOut::class)
 
 }
 

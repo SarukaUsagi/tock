@@ -19,7 +19,7 @@ package ai.tock.bot.connector.hangoutschat.builder
 import ai.tock.bot.connector.ConnectorMessage
 import ai.tock.bot.connector.ConnectorType
 import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorMessage
-import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorMessageOut
+import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorTextMessageOut
 import ai.tock.bot.engine.Bus
 import ai.tock.bot.engine.I18nTranslator
 
@@ -63,6 +63,6 @@ fun <T : Bus<T>> T.withHangoutsChat(messageProvider: () -> HangoutsChatConnector
     return withMessage(hangoutsChatConnectorType, messageProvider)
 }
 
-fun I18nTranslator.textMessage(message: CharSequence, vararg args: Any?): HangoutsChatConnectorMessageOut {
-    return HangoutsChatConnectorMessageOut(translate(message, args).toString())
+fun I18nTranslator.textMessage(message: CharSequence, vararg args: Any?): HangoutsChatConnectorTextMessageOut {
+    return HangoutsChatConnectorTextMessageOut(translate(message, args).toString())
 }

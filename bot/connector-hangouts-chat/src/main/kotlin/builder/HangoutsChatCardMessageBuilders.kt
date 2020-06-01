@@ -16,13 +16,18 @@
 
 package ai.tock.bot.connector.hangoutschat.builder
 
+import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorCardMessageOut
 import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorMessage
-import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorMessageOut
 import ai.tock.bot.connector.hangoutschat.builder.ChatImageStyle.IMAGE
+import ai.tock.bot.definition.Intent
+import ai.tock.bot.definition.Parameters
 import ai.tock.bot.engine.I18nTranslator
-import ai.tock.translator.EMPTY_TRANSLATED_STRING
 import com.google.api.services.chat.v1.model.*
 
+internal const val HANGOUTS_CHAT_ACTION_SEND_SENTENCE = "SEND_SENTENCE"
+internal const val HANGOUTS_CHAT_ACTION_SEND_CHOICE = "SEND_CHOICE"
+internal const val HANGOUTS_CHAT_ACTION_TEXT_PARAMETER = "TEXT"
+internal const val HANGOUTS_CHAT_ACTION_INTENT_PARAMETER = "INTENT"
 
 @DslMarker
 annotation class CardElementMarker
@@ -41,10 +46,10 @@ abstract class ChatCardElement(val i18nTranslator: I18nTranslator) : I18nTransla
 }
 
 
-fun I18nTranslator.card(init: ChatCard.() -> Unit): HangoutsChatConnectorMessage {
+fun I18nTranslator.card(init: ChatCard.() -> Unit): HangoutsChatConnectorCardMessageOut {
     val card = ChatCard(this)
     card.init()
-    return HangoutsChatConnectorMessageOut(card.toCardMessage())
+    return HangoutsChatConnectorCardMessageOut(card)
 }
 
 class ChatCard(i18nTranslator: I18nTranslator) : ChatCardElement(i18nTranslator) {
@@ -113,7 +118,7 @@ sealed class ChatWidget(i18nTranslator: I18nTranslator) : ChatCardElement(i18nTr
 
 class ChatTextParagraph(val text: CharSequence, i18nTranslator: I18nTranslator) : ChatWidget(i18nTranslator)
 
-// TODO onClick
+// TODO onClick and button
 class ChatKeyValue(
     val topLabel: CharSequence?,
     val content: CharSequence,
@@ -134,6 +139,11 @@ class ChatButtons(i18nTranslator: I18nTranslator) : ChatWidget(i18nTranslator) {
             i18nTranslator
         ), init
     )
+
+    fun nlpTextButton(text: CharSequence) =
+        textButton(text) {
+            nlpAction(text)
+        }
 
     fun iconButton(iconUrl: String, init: ChatButton.() -> Unit) =
         initElement(ChatButton.ChatIconExternalButton(iconUrl, i18nTranslator), init)
@@ -183,6 +193,15 @@ sealed class ChatButton(i18nTranslator: I18nTranslator) : ChatCardElement(i18nTr
         buttonAction = ChatButtonAction.ChatAction(action, parameters)
     }
 
+    fun nlpAction(text: CharSequence) =
+        action(HANGOUTS_CHAT_ACTION_SEND_SENTENCE, mapOf(HANGOUTS_CHAT_ACTION_TEXT_PARAMETER to text.toString()))
+
+    fun choiceAction(intent: Intent, parameters: Parameters) =
+        action(
+            HANGOUTS_CHAT_ACTION_SEND_CHOICE,
+            mapOf(HANGOUTS_CHAT_ACTION_INTENT_PARAMETER to intent.name) + parameters.toMap()
+        )
+
     class ChatTextButton(val text: CharSequence, i18nTranslator: I18nTranslator) : ChatButton(i18nTranslator)
     class ChatIconExternalButton(val iconUrl: String, i18nTranslator: I18nTranslator) : ChatButton(i18nTranslator)
     class ChatIconEmbeddedButton(
@@ -211,7 +230,8 @@ private fun ChatHeader.toCardHeader() =
         .setImageStyle(imageStyle.name)
 
 private fun ChatSection.toSection(): Section {
-    return Section().setHeader(header?.toString()).setWidgets(children.mapNotNull { it as? ChatWidget }.map { it.toWidget() })
+    return Section().setHeader(header?.toString())
+        .setWidgets(children.mapNotNull { it as? ChatWidget }.map { it.toWidget() })
 }
 
 private fun ChatWidget.toWidget(): WidgetMarkup {
@@ -219,7 +239,8 @@ private fun ChatWidget.toWidget(): WidgetMarkup {
         is ChatTextParagraph -> WidgetMarkup().setTextParagraph(TextParagraph().setText(text.toString()))
         is ChatImage -> WidgetMarkup().setImage(Image().setImageUrl(imageUrl))
         is ChatKeyValue -> WidgetMarkup().setKeyValue(
-            KeyValue().setTopLabel(topLabel?.toString()).setContent(content.toString()).setBottomLabel(bottomLabel?.toString())
+            KeyValue().setTopLabel(topLabel?.toString()).setContent(content.toString())
+                .setBottomLabel(bottomLabel?.toString())
                 .setContentMultiline(contentMultiline).setIconUrl(iconUrl).setIcon(icon?.name)
         )
         is ChatButtons -> WidgetMarkup().setButtons(children.mapNotNull { it as? ChatButton }.map { it.toButton() })

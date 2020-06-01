@@ -16,13 +16,12 @@
 
 package builder
 
+import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorCardMessageOut
 import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorMessage
-import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorMessageOut
+import ai.tock.bot.connector.hangoutschat.HangoutsChatConnectorTextMessageOut
 import ai.tock.bot.connector.hangoutschat.builder.ChatIcon
 import ai.tock.bot.connector.hangoutschat.builder.card
 import ai.tock.bot.engine.I18nTranslator
-import ai.tock.translator.EMPTY_TRANSLATED_STRING
-import ai.tock.translator.I18nLabelValue
 import ai.tock.translator.TranslatedString
 import com.google.api.client.json.jackson2.JacksonFactory
 import io.mockk.every
@@ -36,7 +35,7 @@ internal class HangoutsChatCardMessageBuildersTest {
         every { translate(text = any()) } answers { TranslatedString(arg(0)) }
     }
 
-    private fun buildCard(): HangoutsChatConnectorMessage {
+    private fun buildCard(): HangoutsChatConnectorCardMessageOut {
         return i18nTranslator.card {
             header("Pizza Bot Customer Support", "pizzabot@example.com", "https://goo.gl/aeDtrS")
             section {
@@ -64,7 +63,7 @@ internal class HangoutsChatCardMessageBuildersTest {
 
     @Test
     internal fun `should build complete card`() {
-        val googleMessageOut = (buildCard() as? HangoutsChatConnectorMessageOut)?.googleMessage
+        val googleMessageOut = buildCard().toGoogleMessage()
         assertThat(googleMessageOut).isNotNull
         assertThat(JacksonFactory().toPrettyString(googleMessageOut)).isEqualTo(
             """
@@ -149,7 +148,7 @@ internal class HangoutsChatCardMessageBuildersTest {
         }
         every { i18nTranslator.translate("Pizza Bot Customer Support") } returns TranslatedString("SAV Pizza Bot")
 
-        val googleMessageOut = (buildCard() as? HangoutsChatConnectorMessageOut)?.googleMessage
+        val googleMessageOut = buildCard().toGoogleMessage()
         assertThat(googleMessageOut).isNotNull
         assertThat(JacksonFactory().toPrettyString(googleMessageOut)).isEqualTo(
             """
