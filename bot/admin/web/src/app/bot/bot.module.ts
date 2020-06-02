@@ -62,6 +62,7 @@ import {StoryRuleComponent} from "./feature/story-rule.component";
 import {SelectEntityDialogComponent} from "./story/select-entity-dialog.component";
 import {StoryRuntimeSettingsComponent} from "./feature/story-runtime-settings.component";
 import { StoryTypePipe } from "./feature/story-type.pipe";
+import {StoryTagComponent} from "./story/story-tag.component";
 
 const routes: Routes = [
   {
@@ -152,7 +153,8 @@ export class BotRoutingModule {
     ApplicationFeatureComponent,
     StoryRuleComponent,
     StoryRuntimeSettingsComponent,
-    StoryTypePipe
+    StoryTypePipe,
+    StoryTagComponent
   ],
   exports: [],
   providers: [
@@ -168,4 +170,6 @@ export class BotRoutingModule {
   ]
 })
 export class BotModule {
+  constructor() {
+  }
 }

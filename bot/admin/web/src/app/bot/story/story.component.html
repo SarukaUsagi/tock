@@ -99,6 +99,8 @@
       <tock-answer id="main_answer" class="answer" [answer]="story" [fullDisplay]="fullDisplay" [create]="!story._id"
                    [submit]="submit"></tock-answer>
 
+      <tock-story-tag [(selectedTag)]="storyTag"></tock-story-tag>
+
       <!-- steps -->
       <div *ngIf="displaySteps" class="fullDisplayDivider"></div>
       <mat-divider *ngIf="displaySteps" [inset]="true" class="divider"></mat-divider>
